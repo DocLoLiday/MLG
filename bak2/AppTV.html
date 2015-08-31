@@ -1,0 +1,210 @@
+  <!DOCTYPE html>
+  <html  style="overflow: hidden;">
+  <title>Skreens App Test</title>
+
+  <head>
+   <script src="http://code.jquery.com/jquery-1.11.2.min.js" type="text/javascript"></script>
+   <link rel="stylesheet" type="text/css" href="AppStyle.css">
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+   <!-- Optional theme -->
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+
+   <!-- Latest compiled and minified JavaScript -->
+   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script> 
+   <script type='text/javascript'>
+     
+   //websocket
+   var ws;
+   //array of channels
+   var channels;
+   //array of streams
+   var streams;
+   //loaded video stream
+   var videochannel;
+   //toggles play/pause
+   var play = false;
+   //websocket IP
+   var wsIP;
+   var tag = document.createElement('script');
+   //loads youtube iframe api for play/pause functionality
+   tag.src = "https://www.youtube.com/iframe_api";
+   var firstScriptTag = document.getElementsByTagName('script')[0];
+   firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+   var player;
+   function onYouTubeIframeAPIReady() {
+        player = new YT.Player('currentvid', {
+          events: {
+            'onReady': onPlayerReady
+          }
+        });
+    }
+    function onPlayerReady(event) {
+        event.target.playVideo();
+    }
+    function stopVideo() {
+        player.stopVideo();
+    }
+   //fires on load
+   function init() {
+     console.log("Start Init: ");
+    var xmlhttp = new XMLHttpRequest();
+    var url = 'http://www.majorleaguegaming.com/api/channels/all?fields=id,name,embed_code,subtitle,image_16_9_small'
+    xmlhttp.open("GET", url, true);
+    xmlhttp.send();
+    function myFunction(response) {
+        var arr = JSON.parse(response);
+        //Creates an array of channels from the API
+      channels = arr.data.items;
+       //console.log(channels);
+    }
+    xmlhttp.onreadystatechange=function() {
+        if (xmlhttp .readyState == 4 && xmlhttp.status == 200) {
+            myFunction(xmlhttp.responseText);
+            loadStreams();
+        }
+    }
+     wsIP = getParameterByName("socketID"); //54.213.84.192:8888 
+    if (wsIP == "")
+      wsIP = "54.213.84.192:8888";
+    ws = new WebSocket("ws://" + wsIP + "/ws");
+
+     ws.onopen = function() {
+              // ws.send("Hello, world");
+              var msg="broadcast:VideoReady";
+              ws.send(msg);
+            }
+     ws.onmessage = function (evt) {
+         // alert(evt.data);  // popup dialog                 
+         console.log("message: " + evt.data);
+         //sets mode for case statement. Will handle this better in the future. Now reads broadcast and if broadcast contains mode title, switches mode
+         var mode = "";
+         if (evt.data.indexOf("FlipColor") > -1)
+            mode = "FlipColor"
+         if (evt.data.indexOf("RCSetScroll") > -1)
+            mode = "RCSetScroll"
+         if (evt.data.indexOf("RCLoadVideo") > -1)
+            mode = "RCLoadVideo"
+         if (evt.data.indexOf("RCPausePlay") > -1)
+            mode = "RCPausePlay"
+         if (evt.data.indexOf("RCCloseVideo") > -1)
+            mode = "RCCloseVideo"
+
+        switch(mode){
+           case "RCSetScroll":
+              var datastring = evt.data;
+              var h = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+              $('#sb1 div').scrollTop(h);
+              console.log($('#sb1 div').scrollTop());
+           break;
+           //replaces &quot; from api, sets the domain, loads the video in an iFrame
+           case "RCLoadVideo":
+              var datastring = evt.data;
+              var id = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+              loadVideo(id);
+           break;
+           //toggles pause/play ---not working yet
+           case "RCPausePlay":
+              play = !play;
+              var div = document.getElementById("video");
+              var iframe = div.getElementsByTagName("iframe")[0].contentWindow;
+              if (play == true){
+                iframe.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+
+              }
+              else{
+                iframe.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                console.log(player.id);
+              }
+
+              
+              //iframe.contentWindow.postMessage('{"event":"command","func":"'+ func +'","args":""}', '*');
+           break;
+           //removes the video iFrame
+           case "RCCloseVideo":
+              play = false;
+              document.getElementById("video").innerHTML = "";
+           break;
+
+        }
+
+     }
+   }
+   function getParameterByName(name) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+   function loadVideo(id){
+      videochannel = $.grep(channels, function(e){ return e.id == id; });
+              if (videochannel[0].embed_code.indexOf("http:") == -1){
+                videochannel[0].embed_code = videochannel[0].embed_code.replace(/&quot;/g,"");
+                videochannel[0].embed_code = videochannel[0].embed_code.replace('/player/','http://www.majorleaguegaming.com/player/');
+                videochannel[0].embed_code = videochannel[0].embed_code.replace('" scrolling','?enablejsapi=1" id ="currentvid" scrolling');
+              }
+              var tempframe = '<video controls="controls" style="width:100%;height:100%"><source type="application/x-mpegURL" src="http://mlghds-lh.akamaihd.net/i/mlg264_1@66256/master.m3u8" /></video>';
+              document.getElementById("video").innerHTML = videochannel[0].embed_code;
+              // player = new YT.Player('currentvid', {
+              //   events: {
+              //     'onReady': onPlayerReady
+              //   }
+              // });
+              // console.log(player.id);
+              play = true;
+   }
+   function loadStreams(){
+    var xmlhttp2 = new XMLHttpRequest();
+    var url = 'http://streamapi.majorleaguegaming.com/service/streams/all?status=1,2'
+    xmlhttp2.open("GET", url, true);
+    xmlhttp2.send();
+    function myFunction2(response) {
+        var arr = JSON.parse(response);
+        //Creates an array of live streams from the API
+      streams = arr.data.items;
+      //Dynamically builds list of live channels displaying Avatar, Name, Subtitle --****THIS CAN BE DONE BETTER**********
+       // var out = "";
+       //  for(i = 0; i < streams.length; i++) {
+       //      var channel = $.grep(channels, function(e){ return e.id == streams[i].channel_id; });
+       //      out += '<div id="'+ channel[0].id + '" class="channel channel-ticker" title="'+ channel[0].name + '" onclick="loadVideo(this.id)"><div class="avatar"><img src="'+ channel[0].image_16_9_small + '"></div><div class="info"><p class="title">'+ channel[0].name + '</p><p class="subtitle">'+ channel[0].subtitle + '</p></div><div class="status live" title="LIVE"></div></div>';
+       //  };
+        //document.getElementById("channels").innerHTML = out;
+    }
+    xmlhttp2.onreadystatechange=function() {
+        if (xmlhttp2 .readyState == 4 && xmlhttp2.status == 200) {
+            myFunction2(xmlhttp2.responseText);
+        }
+    }
+   }
+   function playPause(){
+      var video = document.getElementById("flash-player");
+       var button = document.getElementById("controller");
+       if (video.paused) {
+          video.play();
+          button.textContent = "||";
+       } else {
+          video.pause();
+          button.textContent = ">";
+       }
+   }
+   </script>
+  </head>
+  <body onload="init()" id="" style="overflow:hidden;">
+  <div id="controller" onclick="playPause()">Play/Pause</div>
+    <!-- <h1><p id="demo" >I am the TV, change my color with controller</p></h1> -->
+    <div id="channel" style="height:100%;width:100%;">        
+      <div class="video-container">
+        <div class="mlg-player-container" id="video" style="">
+          <!-- <a id="play_placeholder" href="#">
+            <div style="width:100%;height:100%;">
+              <div class="circle_one" style="opacity: 0.8;">
+                <div class="play_triangle" style="opacity: 0.8;">
+                </div>
+              </div>
+            </div>
+          </a> -->
+        </div>
+      </div>
+    </div>
+
+  </html>

@@ -1,0 +1,138 @@
+<html style="height: 558px; width:450px;position:absolute;">
+  <head>
+     <script src="http://code.jquery.com/jquery-1.11.2.min.js" type="text/javascript"></script>
+     <link rel="stylesheet" type="text/css" href="AppStyle.css">
+     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+     <!-- Optional theme -->
+     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+
+     <!-- Latest compiled and minified JavaScript -->
+     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>  
+<script type='text/javascript'>
+//websocket
+var ws;
+//websocket IP
+var wsIP;
+//message counter for id-ing divs
+var msgCount;
+//hard-coded dummy chat messages to simulate cool kids online
+var msgArr;
+//current chat message position. Must not exceed 20
+var arrPos;
+//Fires on load page
+function init() {  
+  wsIP = getParameterByName("socketID"); //54.213.84.192:8888 
+    if (wsIP == "")
+      wsIP = "54.213.84.192:8888";
+  ws = new WebSocket("ws://" + wsIP + "/ws");
+  msgCount = 0;
+  msgArr = [];
+  arrPos = 0;
+  //loadMsgArr("DEFAULT");
+  ws.onopen = function() {
+    chatReady();
+  }
+  ws.onmessage = function (evt) {
+    if (evt.data.indexOf("RCLoadChat") > -1){
+            var datastring = evt.data;
+            var channelName = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+            loadMsgArr(channelName);
+    }
+    if (evt.data.indexOf("RCSendChat") > -1){
+      var datastring = evt.data;
+        var chatText = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+        createDiv();
+        document.getElementById("msg_" + msgCount).innerHTML = "<b style=color:Navy;>SkreensDemo:</b> " + chatText;
+        anchorChatBot();
+    }
+    if (evt.data.indexOf("RCLoadMsg") > -1){
+        addMsg();
+    }
+    if (evt.data.indexOf("RCSetChatScroll") > -1){
+      var datastring = evt.data;
+        var h = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+        $('#container div').scrollTop(h);
+        console.log($('#container div').scrollTop());
+    }
+    if (evt.data.indexOf("RCZoomChat") > -1){
+        var datastring = evt.data;
+        var fontSizeChat = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+        $("#messages").css({'font-size':fontSizeChat});
+    }
+    if (evt.data.indexOf("PingChatTV") > -1){
+        chatReady();
+    }
+  }
+}
+function chatReady(){
+    var msg="broadcast:ChatReady";
+    ws.send(msg);
+}
+ function loadMsgArr(name){
+    clearChat();
+    msgArr.push({name:'Voltagethegod',text:'your playlist is godlike',color:"blue"});
+    msgArr.push({name:name,text:'thx dude! Panteras so hard',color:"red"});
+    msgArr.push({name:'XPJacob',text:'BOOM! Headshot!',color:"green"});
+    msgArr.push({name:'AlmightyTroN',text:'wuddup homie',color:"purple"});
+    msgArr.push({name:'ChuckieBronson',text:'how u get up to the tower?',color:"red"});
+    msgArr.push({name:name,text:'theres a ladder round the corner from SE spawnpoint',color:""});
+    msgArr.push({name:'NateDaGREAT',text:'thats a sick sniping position',color:""});
+    msgArr.push({name:'zackamania',text:'yeah i got 20 kills from there last round',color:""});
+    msgArr.push({name:'XPJacob',text:'anyone use Slicer mod?',color:"green"});
+    msgArr.push({name:'NateDaGREAT',text:'Slicer always makes sweet stuff',color:""});
+    msgArr.push({name:'zackamania',text:'WATCH OUT, ' + name.toUpperCase() + ' ROCKETS INCOMING!!!',color:""});
+    msgArr.push({name:'ChuckieBronson',text:'sweet strafe, they jus missed u',color:""});
+    msgArr.push({name:name,text:'thx guys. PLEASE SUBSCRIBE!',color:"red"});
+    msgArr.push({name:'fr0ggyfr3$h',text:'yo yo fr0ggy in da hooouuuuuse',color:"#666"});
+    msgArr.push({name:'AlmightyTroN',text:'sup frogz, how u livin? great match today',color:"purple"});
+    msgArr.push({name:'fr0ggyfr3$h',text:'u2 my man',color:"#666"});
+    msgArr.push({name:'AlmightyTroN',text:'that gun is OP man! you can just camp for days!',color:"purple"});
+    msgArr.push({name:'zackamania',text:'cant beat the razorrifle tho',color:""});
+    msgArr.push({name:name,text:'alright, time to end this',color:"red"});
+    msgArr.push({name:'Voltagethegod',text:'BEASTMODE!',color:"blue"});
+    msgArr.push({name:'fr0ggyfr3$h',text: 'GG dude!',color:"#666"});
+  }
+function getParameterByName(name) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+function addMsg(){
+  createDiv();
+  document.getElementById("msg_" + msgCount).innerHTML = "<b style=color:" + msgArr[arrPos].color + ";>" + msgArr[arrPos].name + ":</b> " + msgArr[arrPos].text;
+  if(arrPos < 20)
+    arrPos +=1;
+  else
+    arrPos = 0;
+}
+function anchorChatBot(){
+  var height = document.getElementById('messages').scrollHeight;
+  $('#container div').scrollTop(height);
+}
+function createDiv(){
+  msgCount += 1;
+  var newDiv = document.createElement('div');
+  newDiv.id = "msg_" + msgCount;
+  newDiv.className = "message_box bold";
+  document.getElementById("messages").appendChild(newDiv);
+  document.getElementById("container").scrollTop = document.getElementById("container").scrollHeight;
+}
+function clearChat(){
+  msgArr=[];
+  arrPos = 0;
+  document.getElementById("messages").innerHTML = '<div class="message_box bold">Welcome to the chat.</div>';
+}
+</script>   
+  </head>
+  <body onload="init()">
+    <div id="container" >
+      <div id="content" class="chat-style-light">
+        <div id="messages">
+          <div class="message_box bold">Welcome to the chat.</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

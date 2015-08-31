@@ -1,0 +1,134 @@
+  <!DOCTYPE html>
+  <html id="html-ticker">
+  <title>Skreens App Test</title>
+
+  <head>
+   <script src="http://code.jquery.com/jquery-1.11.2.min.js" type="text/javascript"></script>
+   <link rel="stylesheet" type="text/css" href="AppStyle.css">
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+   <!-- Optional theme -->
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+
+   <!-- Latest compiled and minified JavaScript -->
+   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script> 
+   <script type='text/javascript'>
+        
+        
+
+   //websocket
+   var ws;
+   //array of channels
+   var channels;
+   //array of streams
+   var streams;
+   //websocket ip
+   var wsIP;
+
+   function init() {
+     console.log("Start Init: ");
+     token = 0;
+    
+     wsIP = getParameterByName("socketID"); //54.213.84.192:8888 
+    if (wsIP == "")
+      wsIP = "54.213.84.192:8888";
+    ws = new WebSocket("ws://" + wsIP + "/ws");
+
+     ws.onopen = function() {
+              // ws.send("Hello, world");
+            loadAPI();
+            }
+     ws.onmessage = function (evt) {
+         // alert(evt.data);  // popup dialog                 
+         console.log("message: " + evt.data);
+         //sets mode for case statement. Will handle this better in the future. Now reads broadcast and if broadcast contains mode title, switches mode
+         var mode = "";
+         if (evt.data.indexOf("RCSetScroll") > -1){
+            var datastring = evt.data;
+            var h = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+            $('#sb1 div').scrollLeft(h);
+            console.log($('#sb1 div').scrollLeft());
+         }
+          if (evt.data.indexOf("RCZoomTicker") > -1){
+            var datastring = evt.data;
+            var fontSize = datastring.slice(-(datastring.length - datastring.indexOf("=") - 1));
+            $(".info").css({'font-size':fontSize});
+          }
+          if (evt.data.indexOf("RCRequestAPI") > -1){
+            loadAPI();
+          }
+       }
+
+     }
+    function getParameterByName(name) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+    function loadAPI(){
+      var xmlhttp = new XMLHttpRequest();
+      var url = 'http://www.majorleaguegaming.com/api/channels/all?fields=id,name,embed_code,subtitle,image_16_9_small'
+      xmlhttp.open("GET", url, true);
+      xmlhttp.send();
+      function myFunction(response) {
+        var arr = JSON.parse(response);
+        //Creates an array of channels from the API
+        channels = arr.data.items;
+        //console.log(channels);
+      }
+      xmlhttp.onreadystatechange=function() {
+        if (xmlhttp .readyState == 4 && xmlhttp.status == 200) {
+            myFunction(xmlhttp.responseText);
+            loadStreams();
+        }
+      }
+    }
+   function loadStreams(){
+    var xmlhttp2 = new XMLHttpRequest();
+    var url = 'http://streamapi.majorleaguegaming.com/service/streams/all?status=1,2'
+    xmlhttp2.open("GET", url, true);
+    xmlhttp2.send();
+    function myFunction2(response) {
+        var arr = JSON.parse(response);
+        //Creates an array of live streams from the API
+      streams = arr.data.items;
+      //Dynamically builds list of live channels displaying Avatar, Name, Subtitle --****THIS CAN BE DONE BETTER**********
+       var out = "";
+        for(i = 0; i < streams.length; i++) {
+            var channel = $.grep(channels, function(e){ return e.id == streams[i].channel_id; });
+            out += '<div id="'+ channel[0].id + '" class="channel channel-ticker" title="'+ channel[0].name + '" onclick="launchApp(this.id)"><div class="avatar"><img src="'+ channel[0].image_16_9_small + '"></div><div class="info"><p class="title">'+ channel[0].name + '</p><p class="subtitle">'+ channel[0].subtitle + '</p></div><div class="status live" title="LIVE"></div></div>';
+            var msg = "broadcast:TVSendChannels?string=" + JSON.stringify(channel[0]);
+            var msg2 = "broadcast:TVSendStreams?string=" + JSON.stringify(streams[i]);
+            ws.send(msg);
+            ws.send(msg2);
+        }
+        document.getElementById("channels").innerHTML = out;
+        var msg3 = "broadcast:TVTickerReady";
+        ws.send(msg3);
+        console.log(msg3);
+    }
+
+    xmlhttp2.onreadystatechange=function() {
+        if (xmlhttp2 .readyState == 4 && xmlhttp2.status == 200) {
+            myFunction2(xmlhttp2.responseText);
+        }
+    }
+   }
+   </script>
+  </head>
+  <body onload="init()">
+    <div id="channel">
+      <div id="video-sidebar channel-list-tv" class="video-sidebar channel-list-tv-ticker">        
+        <div class="sidebar-content sidebar-addition-ticker-tv" id="sb1"> 
+          <div id="left-button" class="glyphicon glyphicon-th">
+          </div>           
+          <div id="channels" style="overflow-y: hidden;">      
+          </div>
+          <div id="icon-advertisment" class="">
+          </div>   
+        </div>              
+      </div>
+    </div>     
+  </body>
+</html>
